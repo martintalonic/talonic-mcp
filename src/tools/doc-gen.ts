@@ -64,7 +64,7 @@ const jobIdArg = z.string().uuid().describe("Batch id (from talonic_doc_gen_jobs
 const valuesArg = z
   .record(z.string(), z.string())
   .describe(
-    "Values by field key (or case key). A field whose source type is `case` (entered per document) takes the value as entered; a value for any other field is an edit over the fill, recorded in the document history.",
+    'Values by field key (or case key). A field whose source type is `case` (entered per document) takes the value as entered; a passage decided per document (condition `ask`) takes "yes" or "no" (include or leave out; it stays missing until decided); a value for any other field is an edit over the fill, recorded in the document history.',
   )
 
 const ENTERED_RULE =
@@ -209,7 +209,7 @@ export const updateTemplateInputSchema = {
           .record(z.string(), z.unknown())
           .optional()
           .describe(
-            "Field source as the sheet stores it, e.g. { type: 'product', field }, { type: 'reference', column }, { type: 'case', caseKey }, { type: 'user', profile }, { type: 'rule', rule }, { type: 'today' }, { type: 'party', role: addressee|effective_partner|partner|manager|tenant|previous_owner|new_owner, attribute: name|salutation|greeting|street|postcode_town|address|address_block|email|kind|channel }, { type: 'variant', by: <party role>, map: { herr, frau, eheleute, person, company, association }, fallback } (grammar such as 'der/von'), { type: 'condition', when: { kind: 'party', role, present } | { kind: 'document', pattern, present } | { kind: 'field', field, present?, equals? }, text? } (printed only when the condition holds), { type: 'fixed', text }.",
+            "Field source as the sheet stores it, e.g. { type: 'product', field }, { type: 'reference', column }, { type: 'case', caseKey }, { type: 'user', profile }, { type: 'rule', rule }, { type: 'today' }, { type: 'party', role: addressee|owner_addressee|effective_partner|partner|manager|tenant|previous_owner|new_owner, attribute: name|salutation|greeting|street|postcode_town|address|address_block|email|kind|channel }, { type: 'variant', by: <party role>, map: { herr, frau, eheleute, person, company, association }, fallback } (grammar such as 'der/von'), { type: 'condition', when: { kind: 'party', role, present } | { kind: 'document', pattern, present } | { kind: 'field', field, present?, equals? } | { kind: 'ask' }, text? } (printed only when the condition holds; `ask`: the person generating decides per document, e.g. case variants), { type: 'fixed', text }.",
           ),
         confirmed: z.boolean().optional().describe("Only when the user asked to confirm."),
         reason: z.string().max(400).nullable().optional(),
