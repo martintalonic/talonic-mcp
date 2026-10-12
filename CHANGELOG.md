@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > The publish workflow assigns the version on release; after the push that publishes it, promote this block to `## [<version>] - <date>` (the changelog lock accepts the current package version living here until then).
 
+## [0.1.87] - 2026-10-11
+
 ### Added
 
 - **Agentic Review escalation + quote evidence.** `talonic_submit_agent_task` outputs accept `escalate` (hand one field to a human instead of writing it), `quote` and `document_id` (verbatim evidence for a changed value, required when the task's autonomy sets `requireQuote`). Previously these keys were stripped before reaching the platform.
+
+## [0.1.86] - 2026-10-09
+
+### Added
+
 - **Glama ownership claim.** `GET /.well-known/glama.json` serves the Glama connector claim token (overridable via `GLAMA_CLAIM_TOKEN`) so the mcp.talonic.com domain verifies on Glama.
 
 ## [0.1.85] - 2026-10-08
