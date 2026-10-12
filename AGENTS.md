@@ -34,6 +34,8 @@ Source: one file per tool in `src/tools/`. Each exports `handle<Name>()` (pure, 
 
 **App-gated — `src/tools/ap.ts`** registers eight `talonic_ap_*` tools over the platform's `/v1/ap/*` (Accounts Payable: totals, invoices, held worklist, configuration read / replace, NetSuite vendor bill preview, post to the SIMULATED NetSuite sandbox, posting runs). Registered only when `probeApAccess()` (`GET /v1/ap/config` → 200) passes (hosted: per-token 5-min cache `apAccessCached`; stdio: once at boot). Not in the public tool count, the submission manifest or `src/content/`.
 
+**App-gated — `src/tools/doc-gen.ts`** registers sixteen `talonic_doc_gen_*` tools over the platform's `/v1/doc-gen/*` (Document Generation: status, worklist, templates with their field sheets, change a template / fields by key, confirm fields, propose a sheet from a data product with an optional wait, upload (base64; `file_path` only in a local install) and delete templates, products and their rows, workspace rules, the writer profile (save merges), draft, generate with an optional wait, batches, PDF retry, and one generated file returned as an embedded resource blob, up to 8 MB). Registered only when `probeDocGenAccess()` (`GET /v1/doc-gen/status` → 200) passes (hosted: per-token 5-min cache `docGenAccessCached`; stdio: once at boot). Not in the public tool count, the submission manifest or `src/content/`.
+
 | Tool | File | Read-only? | Notes |
 | --- | --- | --- | --- |
 | `talonic_extract` | `extract.ts` | no | Primary tool. Schema **required** (rejected at MCP layer otherwise). Inputs: `file_data`+`filename`, `file_path`, `file_url`, or `document_id`. |

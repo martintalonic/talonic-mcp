@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > The publish workflow assigns the version on release; after the push that publishes it, promote this block to `## [<version>] - <date>` (the changelog lock accepts the current package version living here until then).
 
+### Added
+
+- **`talonic_doc_gen_*` tools (16), registered where the platform serves Document Generation.** Over `/v1/doc-gen/*`: `status`, `issues` (worklist), `templates` (list, or one with its field sheet and proposal state), `update_template` (metadata and field changes by key, `dry_run`), `confirm_fields`, `propose` (one template with an optional `wait_seconds` that polls the proposal, or bulk with `dry_run`), `upload_template` (base64; `file_path` too in a local install), `delete_template`, `products` (list, one with columns, or its rows), `rules` (read or replace), `profile` (read, or save merged into the saved details), `draft` (fill with values, origins and `missing`), `generate` (refuses incomplete documents unless `allow_missing`; optional `wait_seconds` polling the batch), `jobs`, `retry_pdf`, `file` (one generated docx/pdf as an embedded resource blob, up to 8 MB). Probe-gated like the Contracts and AP tools (`GET /v1/doc-gen/status` → 200). `apiBinary` helper for raw file downloads.
+
 ## [0.1.87] - 2026-10-11
 
 ### Added
