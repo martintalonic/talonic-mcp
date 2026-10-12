@@ -62,10 +62,22 @@ describe("server instructions", () => {
 })
 
 describe("irreversible writes are annotated destructive", () => {
-  const tools = (createServer({ apiKey: "tlnc_test", includeContractsTools: true }) as any)
-    ._registeredTools
+  const tools = (
+    createServer({
+      apiKey: "tlnc_test",
+      includeContractsTools: true,
+      includeDocGenTools: true,
+    }) as any
+  )._registeredTools
 
-  it.each(["talonic_fail_decision_task", "talonic_contracts_set_term"])("%s", (name) => {
+  it.each([
+    "talonic_fail_decision_task",
+    "talonic_contracts_set_term",
+    "talonic_doc_gen_delete_template",
+    "talonic_doc_gen_rules",
+    "talonic_doc_gen_update_template",
+    "talonic_doc_gen_profile",
+  ])("%s", (name) => {
     expect(tools[name]?.annotations).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,
