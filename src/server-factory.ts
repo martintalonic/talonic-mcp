@@ -18,6 +18,7 @@ import { registerGrowthTools } from "./tools/growth.js"
 import { registerContractsTools } from "./tools/contracts.js"
 import { registerApTools } from "./tools/ap.js"
 import { registerDocGenTools } from "./tools/doc-gen.js"
+import { registerPartiesTools } from "./tools/parties.js"
 import { registerAdminAgentTaskTools, registerAgentTaskTools } from "./tools/agent-tasks.js"
 import { registerDecisionTaskTools } from "./tools/decision-tasks.js"
 import { registerToMarkdown } from "./tools/to-markdown.js"
@@ -131,6 +132,13 @@ export interface CreateServerOptions {
    * never lists tools that would 404. Listing visibility only.
    */
   includeDocGenTools?: boolean
+
+  /**
+   * Register the `talonic_parties_*` tools. Callers set this only after
+   * `probePartiesAccess` passed, so a deployment without Contract Party
+   * Management never lists tools that would 404. Listing visibility only.
+   */
+  includePartiesTools?: boolean
 
   /**
    * Whether the seven decision-task tools are listed as invocable. The hosted
@@ -347,6 +355,9 @@ export function createServer(options: CreateServerOptions): McpServer {
   if (options.includeDocGenTools) {
     // Only a local install (no per-request tokenProvider) may read a caller's file_path.
     registerDocGenTools(server, rawToken, baseUrl, { localFiles: !options.tokenProvider })
+  }
+  if (options.includePartiesTools) {
+    registerPartiesTools(server, rawToken, baseUrl)
   }
 
   // Resource registrations.

@@ -45,6 +45,7 @@ import { probeGrowthAccess } from "./tools/growth.js"
 import { probeContractsAccess } from "./tools/contracts.js"
 import { probeApAccess } from "./tools/ap.js"
 import { probeDocGenAccess } from "./tools/doc-gen.js"
+import { probePartiesAccess } from "./tools/parties.js"
 import { probeAgentTaskAdminAccess } from "./tools/agent-tasks.js"
 import { DECIDE_SCOPE, tokenHasDecideScope } from "./tools/decision-tasks.js"
 import { isOriginAllowed } from "./origin.js"
@@ -109,6 +110,24 @@ export async function docGenAccessCached(
   const ok = await probe(token)
   if (docGenProbeCache.size >= 1000) docGenProbeCache.clear()
   docGenProbeCache.set(token, { ok, expiresAt: now() + GROWTH_PROBE_TTL_MS })
+  return ok
+}
+
+/** Per-token cache of the Parties probe, same TTL and bounding as the Contracts cache. */
+const partiesProbeCache = new Map<string, { ok: boolean; expiresAt: number }>()
+
+/** @internal Exported for tests. */
+export async function partiesAccessCached(
+  token: string,
+  probe: (token: string) => Promise<boolean> = (t) =>
+    probePartiesAccess(t, process.env["TALONIC_BASE_URL"]),
+  now: () => number = Date.now,
+): Promise<boolean> {
+  const hit = partiesProbeCache.get(token)
+  if (hit && hit.expiresAt > now()) return hit.ok
+  const ok = await probe(token)
+  if (partiesProbeCache.size >= 1000) partiesProbeCache.clear()
+  partiesProbeCache.set(token, { ok, expiresAt: now() + GROWTH_PROBE_TTL_MS })
   return ok
 }
 
@@ -323,6 +342,8 @@ export interface CreateRequestHandlerOptions {
   apAccess?: (token: string) => Promise<boolean>
   /** Override the Doc Gen tool visibility check (primarily for tests). */
   docGenAccess?: (token: string) => Promise<boolean>
+  /** Override the Parties tool visibility check (primarily for tests). */
+  partiesAccess?: (token: string) => Promise<boolean>
   /** Override the conditional admin visibility check (primarily for tests). */
   adminAgentTaskAccess?: (token: string) => Promise<boolean>
 }
@@ -607,6 +628,7 @@ export function createRequestHandler(
       includeContractsTools,
       includeApTools,
       includeDocGenTools,
+      includePartiesTools,
     ] = await Promise.all([
       (
         options.growthAccess ??
@@ -627,6 +649,9 @@ export function createRequestHandler(
       ),
       (options.apAccess ?? ((currentToken: string) => apAccessCached(currentToken)))(token),
       (options.docGenAccess ?? ((currentToken: string) => docGenAccessCached(currentToken)))(token),
+      (options.partiesAccess ?? ((currentToken: string) => partiesAccessCached(currentToken)))(
+        token,
+      ),
     ])
     const mcpServer = createServer({
       tokenProvider: () => token,
@@ -635,6 +660,7 @@ export function createRequestHandler(
       includeContractsTools,
       includeApTools,
       includeDocGenTools,
+      includePartiesTools,
       ...(process.env["TALONIC_BASE_URL"] ? { baseUrl: process.env["TALONIC_BASE_URL"] } : {}),
       // Listing UX only: an OAuth token that visibly lacks apps:decide gets
       // the decision-task tools marked non-invocable. The platform decides.

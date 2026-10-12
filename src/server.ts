@@ -17,6 +17,7 @@ import { probeGrowthAccess } from "./tools/growth.js"
 import { probeContractsAccess } from "./tools/contracts.js"
 import { probeApAccess } from "./tools/ap.js"
 import { probeDocGenAccess } from "./tools/doc-gen.js"
+import { probePartiesAccess } from "./tools/parties.js"
 import { probeAgentTaskAdminAccess } from "./tools/agent-tasks.js"
 import { SERVER_NAME, VERSION } from "./version.js"
 
@@ -88,19 +89,22 @@ export async function main(
   // Cross-tenant Agent-task tools use the same visibility model; payload calls
   // remain OAuth + step-up only on the platform. Contracts tools appear only
   // where the platform serves the Contracts app, AP tools where it serves the AP app,
-  // Doc Gen tools where it serves Document Generation.
+  // Doc Gen tools where it serves Document Generation, Parties tools where it
+  // serves Contract Party Management.
   const [
     includeGrowthTools,
     includeAdminAgentTaskTools,
     includeContractsTools,
     includeApTools,
     includeDocGenTools,
+    includePartiesTools,
   ] = await Promise.all([
     probeGrowthAccess(apiKey, baseUrl),
     probeAgentTaskAdminAccess(apiKey, baseUrl),
     probeContractsAccess(apiKey, baseUrl),
     probeApAccess(apiKey, baseUrl),
     probeDocGenAccess(apiKey, baseUrl),
+    probePartiesAccess(apiKey, baseUrl),
   ])
   const server = createServer({
     apiKey,
@@ -110,6 +114,7 @@ export async function main(
     includeContractsTools,
     includeApTools,
     includeDocGenTools,
+    includePartiesTools,
   })
 
   const transport = new StdioServerTransport()

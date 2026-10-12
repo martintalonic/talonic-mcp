@@ -13,7 +13,10 @@ import {
   handleSearch,
   handleSetRole,
   handleStatus,
+  probePartiesAccess,
 } from "../../src/tools/parties"
+import { createServer } from "../../src/server-factory"
+import { partiesAccessCached } from "../../src/http-server"
 
 const CONTRACT = "11111111-1111-4111-8111-111111111111"
 const PARTY = "22222222-2222-4222-8222-222222222222"
@@ -457,5 +460,77 @@ describe("parties contacts and group companies", () => {
       url: `${API}/group-companies`,
       body: { companies },
     })
+  })
+})
+
+describe("parties tool registration", () => {
+  const names = (opts: Record<string, unknown>) =>
+    Object.keys((createServer({ apiKey: "tlnc_test", ...opts }) as any)._registeredTools).filter(
+      (n) => n.startsWith("talonic_parties_"),
+    )
+
+  it("lists the twelve tools only when the probe passed", () => {
+    expect(names({})).toEqual([])
+    expect(names({ includePartiesTools: true })).toHaveLength(12)
+  })
+
+  it("annotates reads read-only and overwrites / merges / replacements destructive", () => {
+    const tools = (createServer({ apiKey: "tlnc_test", includePartiesTools: true }) as any)
+      ._registeredTools
+    for (const n of ["status", "issues", "contracts", "contract", "search"]) {
+      expect(tools[`talonic_parties_${n}`].annotations, n).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      })
+    }
+    for (const n of ["party", "set_role", "merge", "members", "group_companies"]) {
+      expect(tools[`talonic_parties_${n}`].annotations.destructiveHint, n).toBe(true)
+    }
+    expect(tools.talonic_parties_party.annotations.idempotentHint).toBe(false)
+    for (const n of ["confirm", "read"]) {
+      expect(tools[`talonic_parties_${n}`].annotations, n).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      })
+    }
+    expect(tools.talonic_parties_merge.annotations.title).toBe("Merge duplicate parties")
+  })
+
+  it("descriptions follow the WHAT / USE WHEN / NOT FOR / ARGS / RETURNS format", () => {
+    const tools = (createServer({ apiKey: "tlnc_test", includePartiesTools: true }) as any)
+      ._registeredTools
+    for (const n of names({ includePartiesTools: true })) {
+      const d: string = tools[n].description
+      for (const label of ["USE WHEN:", "NOT FOR:", "ARGS:", "RETURNS:"]) {
+        expect(d, `${n} ${label}`).toContain(label)
+      }
+    }
+    expect(tools.talonic_parties_set_role.description).toContain("Verwalter")
+    expect(tools.talonic_parties_set_role.description).toContain("only do them when the user asked")
+    expect(tools.talonic_parties_contract.description).toContain("computed by the platform")
+  })
+
+  it("the probe is true on 200 and false on 404 or a network error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ contracts: 0 }))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await probePartiesAccess("t")).toBe(true)
+    expect(String(fetchMock.mock.calls[0]![0])).toBe(`${API}/status`)
+    expect(new Headers(fetchMock.mock.calls[0]![1].headers).get("authorization")).toBe("Bearer t")
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, 404)))
+    expect(await probePartiesAccess("t")).toBe(false)
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
+    expect(await probePartiesAccess("t")).toBe(false)
+  })
+
+  it("caches the probe per token", async () => {
+    const probe = vi.fn().mockResolvedValue(true)
+    const now = () => 1_000
+    expect(await partiesAccessCached("tok-pt", probe, now)).toBe(true)
+    expect(await partiesAccessCached("tok-pt", probe, now)).toBe(true)
+    expect(probe).toHaveBeenCalledTimes(1)
+    expect(await partiesAccessCached("tok-pt-2", probe, now)).toBe(true)
+    expect(probe).toHaveBeenCalledTimes(2)
   })
 })
