@@ -9,8 +9,10 @@ import { toolError, validationError, type ToolResult } from "./_shared.js"
  * Document Generation tools: the Doc Gen app. Word templates (letters and
  * agreements) whose placeholders are described by a field sheet: each field
  * names where its value comes from (a data product column, the reference
- * table, a pattern over a column, the writer's profile, a workspace rule,
- * today's date, or `case`: entered per document). Filling a template for rows
+ * table, a pattern over a column, a contract party from Contract Party
+ * Management, the writer's profile, a workspace rule, today's date, or
+ * `case`: entered per document). Red passages of a template (grammar,
+ * conditional text, values to fill) are fields too (`spot.original`). Filling a template for rows
  * of a data product gives one document per row; generating makes the Word
  * files (and PDFs) with every value's origin in the document history.
  *
@@ -179,10 +181,11 @@ const UPDATE_TEMPLATE_DESCRIPTION = [
   "Change a template's metadata (name, group, kind, companion template, version) and its fields by key: a field's label, source, confirmed flag or reason. Fields not named stay as they are; an unknown key is refused. Run with dry_run first to see the sheet as it would be.",
   "USE WHEN: fixing a field the proposal got wrong (e.g. pointing it at another column or making it entered per document with source { type: 'case', caseKey }), or pairing a letter with its agreement.",
   "Setting `confirmed: true` is a person's decision: only do it when the user asked (see talonic_doc_gen_confirm_fields).",
+  "Red passages (fields with `spot.original`, red text in the Word file): set a `variant` for grammar that depends on the party, a `condition` for text printed only sometimes, any value source, or `fixed` to keep the words (in black). `rescan: true` first adds the red passages of a template whose sheet predates them.",
   "NOT FOR: confirming many fields at once (talonic_doc_gen_confirm_fields).",
   "",
-  "ARGS: `template_id`; optional `name`, `group`, `kind` letter|agreement, `pair_template_id`, `version` (null clears group/kind/pair/version); `fields[] { key, label?, source?, confirmed?, reason? }`; `dry_run`.",
-  "RETURNS: { dry_run, template } with the field sheet.",
+  "ARGS: `template_id`; optional `name`, `group`, `kind` letter|agreement, `pair_template_id`, `version` (null clears group/kind/pair/version); `fields[] { key, label?, source?, confirmed?, reason? }`; `rescan` (add the fields the file has and the sheet lacks; alone or before the changes); `dry_run`.",
+  "RETURNS: { dry_run, template } with the field sheet; with `rescan` alone { template, added[] } (keys added).",
 ].join("\n")
 
 export const updateTemplateInputSchema = {
@@ -206,7 +209,7 @@ export const updateTemplateInputSchema = {
           .record(z.string(), z.unknown())
           .optional()
           .describe(
-            "Field source as the sheet stores it, e.g. { type: 'product', field }, { type: 'reference', column }, { type: 'case', caseKey }, { type: 'user', profile }, { type: 'rule', rule }, { type: 'today' }.",
+            "Field source as the sheet stores it, e.g. { type: 'product', field }, { type: 'reference', column }, { type: 'case', caseKey }, { type: 'user', profile }, { type: 'rule', rule }, { type: 'today' }, { type: 'party', role: addressee|effective_partner|partner|manager|tenant|previous_owner|new_owner, attribute: name|salutation|greeting|street|postcode_town|address|address_block|email|kind|channel }, { type: 'variant', by: <party role>, map: { herr, frau, eheleute, person, company, association }, fallback } (grammar such as 'der/von'), { type: 'condition', when: { kind: 'party', role, present } | { kind: 'document', pattern, present } | { kind: 'field', field, present?, equals? }, text? } (printed only when the condition holds), { type: 'fixed', text }.",
           ),
         confirmed: z.boolean().optional().describe("Only when the user asked to confirm."),
         reason: z.string().max(400).nullable().optional(),
@@ -215,6 +218,12 @@ export const updateTemplateInputSchema = {
     .max(500)
     .optional()
     .describe("Field changes by key."),
+  rescan: z
+    .boolean()
+    .optional()
+    .describe(
+      "Read the Word file again and add the fields the sheet lacks (red passages); existing fields stay.",
+    ),
   dry_run: z.boolean().optional().describe("Return the sheet as it would be; nothing is saved."),
 }
 
@@ -230,23 +239,33 @@ export function handleUpdateTemplate(
     pair_template_id?: string | null
     version?: string | null
     fields?: Array<Record<string, unknown>>
+    rescan?: boolean
     dry_run?: boolean
   },
 ): Promise<ToolResult> {
-  const { template_id, dry_run, ...changes } = args
+  const { template_id, dry_run, rescan, ...changes } = args
   const body = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined))
-  if (Object.keys(body).length === 0) {
+  if (Object.keys(body).length === 0 && !rescan) {
     return Promise.resolve(
       validationError(
-        "name nothing to change: pass name, group, kind, pair_template_id, version or fields.",
+        "name nothing to change: pass name, group, kind, pair_template_id, version, fields or rescan.",
       ),
     )
   }
-  return runTool(() =>
-    apiJson(getToken, baseUrl, "PATCH", `/v1/doc-gen/templates/${template_id}`, {
+  if (rescan && dry_run) {
+    return Promise.resolve(
+      validationError("rescan saves the added fields; it cannot run as a dry run."),
+    )
+  }
+  return runTool(async () => {
+    const scanned = rescan
+      ? await apiJson(getToken, baseUrl, "POST", `/v1/doc-gen/templates/${template_id}/rescan`)
+      : null
+    if (Object.keys(body).length === 0) return scanned
+    return apiJson(getToken, baseUrl, "PATCH", `/v1/doc-gen/templates/${template_id}`, {
       body: { ...body, dry_run: dry_run ?? false },
-    }),
-  )
+    })
+  })
 }
 
 const CONFIRM_DESCRIPTION = [

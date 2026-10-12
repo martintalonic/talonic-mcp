@@ -128,6 +128,19 @@ describe("doc-gen overview and templates", () => {
     expect(() => call()).toThrow()
   })
 
+  it("update_template with rescan posts the rescan alone, and refuses it as a dry run", async () => {
+    const call = stub({ template: { id: TPL }, added: ["r12_1"] })
+    const res = await handleUpdateTemplate(token, undefined, { template_id: TPL, rescan: true })
+    expect(res.isError).toBeFalsy()
+    expect(call()).toMatchObject({ method: "POST", url: `${API}/templates/${TPL}/rescan` })
+    const dry = await handleUpdateTemplate(token, undefined, {
+      template_id: TPL,
+      rescan: true,
+      dry_run: true,
+    })
+    expect(dry.isError).toBe(true)
+  })
+
   it("confirm_fields posts keys, include_entered and dry_run", async () => {
     let call = stub({ confirmed: [] })
     await handleConfirm(token, undefined, { template_id: TPL, keys: ["a", "b"], dry_run: true })
