@@ -20,7 +20,10 @@ import {
   handleTemplates,
   handleUpdateTemplate,
   handleUpload,
+  probeDocGenAccess,
 } from "../../src/tools/doc-gen"
+import { createServer } from "../../src/server-factory"
+import { docGenAccessCached } from "../../src/http-server"
 
 const TPL = "11111111-1111-4111-8111-111111111111"
 const PROD = "22222222-2222-4222-8222-222222222222"
@@ -476,5 +479,64 @@ describe("doc-gen draft, generate, jobs, files", () => {
     const res = await handleFile(token, undefined, { job_id: JOB, document_id: DOC })
     expect(res.isError).toBe(true)
     expect(res.content[0]!.type === "text" && res.content[0]!.text).toContain("HTTP 410")
+  })
+})
+
+describe("doc-gen tool registration", () => {
+  const names = (opts: Record<string, unknown>) =>
+    Object.keys((createServer({ apiKey: "tlnc_test", ...opts }) as any)._registeredTools).filter(
+      (n) => n.startsWith("talonic_doc_gen_"),
+    )
+
+  it("lists the sixteen tools only when the probe passed", () => {
+    expect(names({})).toEqual([])
+    expect(names({ includeDocGenTools: true })).toHaveLength(16)
+  })
+
+  it("annotates reads read-only and deletion / replacement destructive", () => {
+    const tools = (createServer({ apiKey: "tlnc_test", includeDocGenTools: true }) as any)
+      ._registeredTools
+    for (const n of ["status", "issues", "templates", "products", "draft", "jobs", "file"]) {
+      expect(tools[`talonic_doc_gen_${n}`].annotations.readOnlyHint, n).toBe(true)
+    }
+    for (const n of ["delete_template", "rules", "update_template", "profile"]) {
+      expect(tools[`talonic_doc_gen_${n}`].annotations.destructiveHint, n).toBe(true)
+    }
+    expect(tools.talonic_doc_gen_generate.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      title: "Generate documents",
+    })
+  })
+
+  it("offers file_path for uploads only in a local (api-key) install", () => {
+    const local = (createServer({ apiKey: "tlnc_test", includeDocGenTools: true }) as any)
+      ._registeredTools.talonic_doc_gen_upload_template
+    const hosted = (createServer({ tokenProvider: () => "t", includeDocGenTools: true }) as any)
+      ._registeredTools.talonic_doc_gen_upload_template
+    const shape = (t: any) => Object.keys(t.inputSchema.shape ?? t.inputSchema.def?.shape ?? {})
+    expect(shape(local)).toContain("file_path")
+    expect(shape(hosted)).not.toContain("file_path")
+  })
+
+  it("the probe is true on 200 and false on 404 or a network error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ templates: 0 }))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await probeDocGenAccess("t")).toBe(true)
+    expect(String(fetchMock.mock.calls[0]![0])).toBe(`${API}/status`)
+    expect(new Headers(fetchMock.mock.calls[0]![1].headers).get("authorization")).toBe("Bearer t")
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, 404)))
+    expect(await probeDocGenAccess("t")).toBe(false)
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
+    expect(await probeDocGenAccess("t")).toBe(false)
+  })
+
+  it("caches the probe per token", async () => {
+    const probe = vi.fn().mockResolvedValue(true)
+    const now = () => 1_000
+    expect(await docGenAccessCached("tok-dg", probe, now)).toBe(true)
+    expect(await docGenAccessCached("tok-dg", probe, now)).toBe(true)
+    expect(probe).toHaveBeenCalledTimes(1)
   })
 })

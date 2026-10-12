@@ -260,6 +260,37 @@ describe("HTTP server routing", () => {
     expect(text).toContain("talonic_admin_submit_agent_task")
   })
 
+  it("tools/list includes the doc-gen tools only when the Doc Gen probe passes", async () => {
+    const list = async () => {
+      const res = await fetch(`${h.baseUrl}/mcp`, {
+        method: "POST",
+        headers: MCP_HEADERS,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/list", params: {} }),
+      })
+      expect(res.status).toBe(200)
+      return res.text()
+    }
+    await stopHarness(h)
+    h = await startHarness({ docGenAccess: async () => false })
+    expect(await list()).not.toContain("talonic_doc_gen_")
+    await stopHarness(h)
+    h = await startHarness({ docGenAccess: async () => true })
+    const text = await list()
+    const json = text.trim().startsWith("{")
+      ? text
+      : (text.split("\n").find((l) => l.startsWith("data: ")) ?? "").slice(6)
+    const tools = (JSON.parse(json) as any).result.tools as Array<{
+      name: string
+      inputSchema: any
+    }>
+    const names = tools.map((t) => t.name).filter((n) => n.startsWith("talonic_doc_gen_"))
+    expect(names).toHaveLength(16)
+    // The hosted server never reads its own disk for a caller.
+    const upload = tools.find((t) => t.name === "talonic_doc_gen_upload_template")!
+    expect(Object.keys(upload.inputSchema.properties)).toContain("content_base64")
+    expect(Object.keys(upload.inputSchema.properties)).not.toContain("file_path")
+  })
+
   it.each(Object.values(WIDGET_URIS))(
     "widget template %s is served WITHOUT auth and with JSON-only Accept (review fix)",
     async (uri) => {
