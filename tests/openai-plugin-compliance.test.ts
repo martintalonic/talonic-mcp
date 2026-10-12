@@ -67,6 +67,7 @@ describe("irreversible writes are annotated destructive", () => {
       apiKey: "tlnc_test",
       includeContractsTools: true,
       includeDocGenTools: true,
+      includePartiesTools: true,
     }) as any
   )._registeredTools
 
@@ -77,6 +78,11 @@ describe("irreversible writes are annotated destructive", () => {
     "talonic_doc_gen_rules",
     "talonic_doc_gen_update_template",
     "talonic_doc_gen_profile",
+    "talonic_parties_party",
+    "talonic_parties_set_role",
+    "talonic_parties_merge",
+    "talonic_parties_members",
+    "talonic_parties_group_companies",
   ])("%s", (name) => {
     expect(tools[name]?.annotations).toMatchObject({
       readOnlyHint: false,
