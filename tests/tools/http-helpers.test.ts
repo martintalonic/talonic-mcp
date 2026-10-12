@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { apiForm, apiJson, sleep } from "../../src/tools/_http"
+import { apiBinary, apiForm, apiJson, filenameFromDisposition, sleep } from "../../src/tools/_http"
 
 const getToken = () => "tlnc_test"
 
@@ -84,5 +84,66 @@ describe("sleep", () => {
     vi.advanceTimersByTime(500)
     await expect(p).resolves.toBeUndefined()
     vi.useRealTimers()
+  })
+})
+
+describe("apiBinary", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("GETs with the bearer and returns bytes, filename and media type", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(Buffer.from("abc"), {
+        headers: {
+          "content-type": "application/pdf; charset=binary",
+          "content-disposition": 'attachment; filename="a%20b.pdf"',
+        },
+      }),
+    )
+    vi.stubGlobal("fetch", fetchFn)
+    const file = await apiBinary(getToken, undefined, "/v1/x", {
+      params: { kind: "pdf" },
+      maxBytes: 10,
+    })
+    expect(fetchFn.mock.calls[0][0]).toBe("https://api.talonic.com/v1/x?kind=pdf")
+    const init = fetchFn.mock.calls[0][1] as RequestInit
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer tlnc_test")
+    expect(file).toEqual({
+      bytes: Buffer.from("abc"),
+      filename: "a b.pdf",
+      mimeType: "application/pdf",
+    })
+  })
+
+  it("refuses a body over the limit by Content-Length or by size read", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response("x".repeat(20), { headers: { "content-length": "20" } })),
+    )
+    await expect(apiBinary(getToken, undefined, "/v1/x", { maxBytes: 10 })).rejects.toThrow(
+      "20 bytes, over the 10-byte limit",
+    )
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("x".repeat(20))))
+    await expect(apiBinary(getToken, undefined, "/v1/x", { maxBytes: 10 })).rejects.toThrow(
+      "over the 10-byte limit",
+    )
+  })
+
+  it("throws the API error envelope on non-2xx", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("gone", { status: 410 })))
+    await expect(apiBinary(getToken, undefined, "/v1/x", { maxBytes: 10 })).rejects.toThrow(
+      "HTTP 410 — gone",
+    )
+  })
+})
+
+describe("filenameFromDisposition", () => {
+  it("reads quoted, RFC 5987 and bare filenames", () => {
+    expect(filenameFromDisposition('attachment; filename="a%20b.docx"')).toBe("a b.docx")
+    expect(filenameFromDisposition("attachment; filename*=UTF-8''%C3%A4.pdf")).toBe("ä.pdf")
+    expect(filenameFromDisposition("attachment; filename=plain.docx")).toBe("plain.docx")
+    expect(filenameFromDisposition("attachment")).toBeNull()
+    expect(filenameFromDisposition(null)).toBeNull()
   })
 })

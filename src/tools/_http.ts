@@ -115,6 +115,64 @@ export async function apiForm<T = unknown>(
   return (await res.json()) as T
 }
 
+/** A binary download: the bytes with the filename and media type the API named. */
+export interface BinaryFile {
+  bytes: Buffer
+  filename: string | null
+  mimeType: string
+}
+
+/**
+ * Raw binary GET against the Talonic API (file downloads). Refuses a body
+ * over `maxBytes`, by its Content-Length before reading when the API sends
+ * one, otherwise after reading. Errors are thrown like {@link apiJson}'s.
+ *
+ * @internal
+ */
+export async function apiBinary(
+  getToken: () => string,
+  baseUrl: string | undefined,
+  path: string,
+  opts: { params?: QueryParams; maxBytes: number },
+): Promise<BinaryFile> {
+  const res = await resolveFetch(getToken)(buildUrl(baseUrl, path, opts.params), {
+    method: "GET",
+    headers: { Authorization: `Bearer ${getToken()}`, Accept: "*/*" },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`Talonic API error: HTTP ${res.status}${text ? ` — ${text}` : ""}`)
+  }
+  const tooLarge = (n: number) =>
+    new Error(`File is ${n} bytes, over the ${opts.maxBytes}-byte limit for a tool result.`)
+  const declared = Number(res.headers.get("content-length"))
+  if (Number.isFinite(declared) && declared > opts.maxBytes) {
+    await res.body?.cancel().catch(() => {})
+    throw tooLarge(declared)
+  }
+  const bytes = Buffer.from(await res.arrayBuffer())
+  if (bytes.length > opts.maxBytes) throw tooLarge(bytes.length)
+  return {
+    bytes,
+    filename: filenameFromDisposition(res.headers.get("content-disposition")),
+    mimeType: (res.headers.get("content-type") ?? "application/octet-stream").split(";")[0]!.trim(),
+  }
+}
+
+/** The filename of a Content-Disposition header (RFC 5987 `filename*` first), or null. */
+export function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null
+  const star = /filename\*\s*=\s*(?:UTF-8'[^']*')?([^;]+)/i.exec(header)
+  const plain = /filename\s*=\s*"([^"]*)"|filename\s*=\s*([^;]+)/i.exec(header)
+  const raw = star?.[1] ?? plain?.[1] ?? plain?.[2]
+  if (!raw) return null
+  try {
+    return decodeURIComponent(raw.trim())
+  } catch {
+    return raw.trim()
+  }
+}
+
 /** Promise-based delay; injectable in tests. @internal */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
