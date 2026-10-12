@@ -9,16 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > The publish workflow assigns the version on release; after the push that publishes it, promote this block to `## [<version>] - <date>` (the changelog lock accepts the current package version living here until then).
 
+## [0.1.89] - 2026-10-12
+
+### Added
+
+- **`talonic_parties_*` tools (12), registered where the platform serves Contract Party Management.** Over `/v1/parties/*`: `status`, `issues` (worklist per contract and duplicate candidates, `code` filter), `contracts` (with partner, addressee, state), `contract` (one contract's parties on a day `on`: computed effective partner and addressee, every role with evidence, issues, cost unit, read state), `search`, `party` (read with `party_id`, change with `party_id` + fields, create with `display_name`), `set_role` (add with `contract_id` + `party_id` + `role`, or change by `role_id`: state, role, `represents_id`, period, `enters_contract`, note), `confirm` (bulk, `min_confidence` default high, `dry_run`), `merge` (`into`, `dry_run`), `read` (queue a parties read with `dry_run`, or `status: true`; optional `wait_seconds` 0-600 polling the queue until nothing is pending or running), `members` (add / remove a company contact), `group_companies` (read or replace). Probe-gated like the Doc Gen tools (`GET /v1/parties/status` → 200).
+
+### Changed
+
+- **Doc Gen tools know contract parties and red passages.** `talonic_doc_gen_update_template` takes `rescan` (find the template's red-text passages again); field sources describe `party` (a role's attribute: addressee, owner addressee, effective partner, partner, Verwalter, tenant, previous and new owner), `variant`, `condition` (including `ask`: a person decides per document, `yes` or `no` in `draft` and `generate`) and `fixed`.
+
+## [0.1.88] - 2026-10-12
+
 ### Added
 
 - **Take a batch of one pipeline's Agent tasks.** `talonic_list_agent_tasks` accepts `pipeline_id`; the list and claim descriptions tell an agent how to take N tasks (list available for the pipeline, claim each, skip a 409) and that `output_contract` carries each field's Spec rules (`description`) and allowed codes (`enumValues`).
-- **`talonic_doc_gen_*` tools (16), registered where the platform serves Document Generation.** Over `/v1/doc-gen/*`: `status`, `issues` (worklist), `templates` (list, or one with its field sheet and proposal state), `update_template` (metadata and field changes by key, `dry_run`), `confirm_fields`, `propose` (one template with an optional `wait_seconds` that polls the proposal, or bulk with `dry_run`), `upload_template` (base64; `file_path` too in a local install), `delete_template`, `products` (list, one with columns, or its rows), `rules` (read or replace), `profile` (read, or save merged into the saved details), `draft` (fill with values, origins and `missing`), `generate` (refuses incomplete documents unless `allow_missing`; optional `wait_seconds` polling the batch), `jobs`, `retry_pdf`, `file` (one generated docx/pdf as an embedded resource blob, up to 8 MB). Probe-gated like the Contracts and AP tools (`GET /v1/doc-gen/status` → 200). `apiBinary` helper for raw file downloads.
-- **`talonic_parties_*` tools (12), registered where the platform serves Contract Party Management.** Over `/v1/parties/*`: `status`, `issues` (worklist per contract and duplicate candidates, `code` filter), `contracts` (with partner, addressee, state), `contract` (one contract's parties on a day `on`: computed effective partner and addressee, every role with evidence, issues, cost unit, read state), `search`, `party` (read with `party_id`, change with `party_id` + fields, create with `display_name`), `set_role` (add with `contract_id` + `party_id` + `role`, or change by `role_id`: state, role, `represents_id`, period, `enters_contract`, note), `confirm` (bulk, `min_confidence` default high, `dry_run`), `merge` (`into`, `dry_run`), `read` (queue a parties read with `dry_run`, or `status: true`; optional `wait_seconds` 0-600 polling the queue until nothing is pending or running), `members` (add / remove a company contact), `group_companies` (read or replace). Probe-gated like the Doc Gen tools (`GET /v1/parties/status` → 200).
 
 ## [0.1.87] - 2026-10-11
 
 ### Added
 
+- **`talonic_doc_gen_*` tools (16), registered where the platform serves Document Generation.** Over `/v1/doc-gen/*`: `status`, `issues` (worklist), `templates` (list, or one with its field sheet and proposal state), `update_template` (metadata and field changes by key, `dry_run`), `confirm_fields`, `propose` (one template with an optional `wait_seconds` that polls the proposal, or bulk with `dry_run`), `upload_template` (base64; `file_path` too in a local install), `delete_template`, `products` (list, one with columns, or its rows), `rules` (read or replace), `profile` (read, or save merged into the saved details), `draft` (fill with values, origins and `missing`), `generate` (refuses incomplete documents unless `allow_missing`; optional `wait_seconds` polling the batch), `jobs`, `retry_pdf`, `file` (one generated docx/pdf as an embedded resource blob, up to 8 MB). Probe-gated like the Contracts and AP tools (`GET /v1/doc-gen/status` → 200). `apiBinary` helper for raw file downloads.
 - **Agentic Review escalation + quote evidence.** `talonic_submit_agent_task` outputs accept `escalate` (hand one field to a human instead of writing it), `quote` and `document_id` (verbatim evidence for a changed value, required when the task's autonomy sets `requireQuote`). Previously these keys were stripped before reaching the platform.
 
 ## [0.1.86] - 2026-10-09
