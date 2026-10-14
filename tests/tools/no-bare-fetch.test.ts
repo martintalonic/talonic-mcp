@@ -30,6 +30,7 @@ const ALLOWLISTED_PROBES: Record<string, string> = {
   "doc-gen.ts": "probeDocGenAccess",
   "parties.ts": "probePartiesAccess",
   "master-records.ts": "probeMasterRecordsAccess",
+  "submissions.ts": "probeSubmissionsAccess",
 }
 
 /** Matches a top-level (column-0) function declaration and captures its name. */
