@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > The publish workflow assigns the version on release; after the push that publishes it, promote this block to `## [<version>] - <date>` (the changelog lock accepts the current package version living here until then).
 
+### Added
+
+- **`talonic_submissions_*` tools (6), registered where the platform serves the Submissions app.** Reinsurance submission workbooks over `/v1/submissions/*`: `specs` (the workspace's target structures, labels awaiting review), `list` (inbox: cedent, status, values, facts, metrics, failed / warned checks; `spec_id`, `q`, `limit`, `offset`), `issues` (worklist: not captured, capture failed, not mapped, checks failed, labels to review, format metrics with no facts), `process` (capture and map in bulk: `only`, `document_ids`, `recapture`, `limit`, `dry_run`), `completeness` (one submission per format metric), `export` (facts in the client's long format with the source cell). Probe-gated like the Master Records tools (`GET /v1/submissions/specs` → 200).
+
 ## [0.1.89] - 2026-10-12
 
 ### Added

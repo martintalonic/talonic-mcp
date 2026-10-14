@@ -45,6 +45,7 @@ import { probeGrowthAccess } from "./tools/growth.js"
 import { probeContractsAccess } from "./tools/contracts.js"
 import { probeApAccess } from "./tools/ap.js"
 import { probeMasterRecordsAccess } from "./tools/master-records.js"
+import { probeSubmissionsAccess } from "./tools/submissions.js"
 import { probeDocGenAccess } from "./tools/doc-gen.js"
 import { probePartiesAccess } from "./tools/parties.js"
 import { probeAgentTaskAdminAccess } from "./tools/agent-tasks.js"
@@ -111,6 +112,23 @@ export async function masterRecordsAccessCached(
   const ok = await probe(token)
   if (masterRecordsProbeCache.size >= 1000) masterRecordsProbeCache.clear()
   masterRecordsProbeCache.set(token, { ok, expiresAt: now() + GROWTH_PROBE_TTL_MS })
+  return ok
+}
+
+const submissionsProbeCache = new Map<string, { ok: boolean; expiresAt: number }>()
+
+/** @internal Exported for tests. */
+export async function submissionsAccessCached(
+  token: string,
+  probe: (token: string) => Promise<boolean> = (t) =>
+    probeSubmissionsAccess(t, process.env["TALONIC_BASE_URL"]),
+  now: () => number = Date.now,
+): Promise<boolean> {
+  const hit = submissionsProbeCache.get(token)
+  if (hit && hit.expiresAt > now()) return hit.ok
+  const ok = await probe(token)
+  if (submissionsProbeCache.size >= 1000) submissionsProbeCache.clear()
+  submissionsProbeCache.set(token, { ok, expiresAt: now() + GROWTH_PROBE_TTL_MS })
   return ok
 }
 
@@ -365,6 +383,7 @@ export interface CreateRequestHandlerOptions {
   partiesAccess?: (token: string) => Promise<boolean>
   /** Override the Master Records tool visibility check (primarily for tests). */
   masterRecordsAccess?: (token: string) => Promise<boolean>
+  submissionsAccess?: (token: string) => Promise<boolean>
   /** Override the conditional admin visibility check (primarily for tests). */
   adminAgentTaskAccess?: (token: string) => Promise<boolean>
 }
@@ -651,6 +670,7 @@ export function createRequestHandler(
       includeDocGenTools,
       includePartiesTools,
       includeMasterRecordsTools,
+      includeSubmissionsTools,
     ] = await Promise.all([
       (
         options.growthAccess ??
@@ -678,6 +698,10 @@ export function createRequestHandler(
         options.masterRecordsAccess ??
         ((currentToken: string) => masterRecordsAccessCached(currentToken))
       )(token),
+      (
+        options.submissionsAccess ??
+        ((currentToken: string) => submissionsAccessCached(currentToken))
+      )(token),
     ])
     const mcpServer = createServer({
       tokenProvider: () => token,
@@ -688,6 +712,7 @@ export function createRequestHandler(
       includeDocGenTools,
       includePartiesTools,
       includeMasterRecordsTools,
+      includeSubmissionsTools,
       ...(process.env["TALONIC_BASE_URL"] ? { baseUrl: process.env["TALONIC_BASE_URL"] } : {}),
       // Listing UX only: an OAuth token that visibly lacks apps:decide gets
       // the decision-task tools marked non-invocable. The platform decides.
