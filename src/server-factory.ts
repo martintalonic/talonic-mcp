@@ -19,6 +19,7 @@ import { registerContractsTools } from "./tools/contracts.js"
 import { registerApTools } from "./tools/ap.js"
 import { registerDocGenTools } from "./tools/doc-gen.js"
 import { registerPartiesTools } from "./tools/parties.js"
+import { registerComplianceTools } from "./tools/compliance.js"
 import { registerMasterRecordsTools } from "./tools/master-records.js"
 import { registerSubmissionsTools } from "./tools/submissions.js"
 import { registerAdminAgentTaskTools, registerAgentTaskTools } from "./tools/agent-tasks.js"
@@ -141,6 +142,13 @@ export interface CreateServerOptions {
    * Management never lists tools that would 404. Listing visibility only.
    */
   includePartiesTools?: boolean
+
+  /**
+   * Register the `talonic_compliance_*` tools. Callers set this only after
+   * `probeComplianceAccess` passed, so a deployment without the Compliance
+   * app never lists tools that would 404. Listing visibility only.
+   */
+  includeComplianceTools?: boolean
 
   /**
    * Register the `talonic_master_records_*` tools. Callers set this only after
@@ -374,6 +382,9 @@ export function createServer(options: CreateServerOptions): McpServer {
   }
   if (options.includePartiesTools) {
     registerPartiesTools(server, rawToken, baseUrl)
+  }
+  if (options.includeComplianceTools) {
+    registerComplianceTools(server, rawToken, baseUrl)
   }
   if (options.includeMasterRecordsTools) {
     registerMasterRecordsTools(server, rawToken, baseUrl)
