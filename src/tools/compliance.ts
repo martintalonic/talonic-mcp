@@ -52,12 +52,12 @@ const DECIDER_RULE =
 // ── Overview and reads ─────────────────────────────────────────────────────
 
 const STATUS_DESCRIPTION = [
-  "Compliance at a glance: who makes the decisions (decider), how many tasks wait for the workspace's own agent, and the latest evaluation of each listed document (processing, waiting, completed, error, outdated, failing documents and rules).",
+  "Compliance at a glance: who makes the decisions (decider), how many tasks wait for the workspace's own agent, and the latest evaluation of each listed single document and (under `groups`) of each document group: processing, waiting, completed, error, outdated, failing.",
   "USE WHEN: starting any compliance work, or to report where things stand. With decider `external`, continue with talonic_compliance_list_tasks.",
   "NOT FOR: the failed checks themselves (talonic_compliance_issues); the tasks (talonic_compliance_list_tasks).",
   "",
   "ARGS: none.",
-  "RETURNS: { decider, open_tasks, evaluations { processing, waiting, completed, error, outdated, failing_documents, failing_rules } }.",
+  "RETURNS: { decider, open_tasks, evaluations { processing, waiting, completed, error, outdated, failing_documents, failing_rules (single documents), groups { processing, waiting, completed, error, outdated, failing, failing_rules } } }.",
 ].join("\n")
 
 /** @internal */
@@ -240,7 +240,7 @@ const CLAIM_TASK_DESCRIPTION = [
   "NOT FOR: listing tasks (talonic_compliance_list_tasks).",
   "",
   "ARGS: `task_id`.",
-  "RETURNS: { task { id, kind, execution_epoch, lease_expires_at }, summary, instructions, input, output_schema, how_to_answer }. A document still being read answers 409: claim it again in a minute.",
+  'RETURNS: { task { id, kind, execution_epoch, lease_expires_at }, summary, instructions, input, output_schema, how_to_answer }. A task another agent holds answers 409 ("claimed by …"); claiming a task your own key or login already holds takes it over with a new epoch, and the older epoch can no longer submit, so do not run two sessions on the same task. A document still being read answers 409: claim it again in a minute.',
 ].join("\n")
 
 export const claimTaskInputSchema = { task_id: taskIdArg }
