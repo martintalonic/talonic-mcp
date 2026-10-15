@@ -10,8 +10,9 @@ import type { ToolResult } from "./_shared.js"
  * pass, fail, unclear or not applicable, with a reason and a quote.
  *
  * A workspace can let its own agent make those decisions instead of the
- * platform's model (decider `external`): every rule extraction and every
- * evaluation then waits as a task. The agent claims a task, gets the same
+ * platform's model (decider `external`): reading a framework's requirements,
+ * deriving its rules, every evaluation and every comparison of documents
+ * then waits as a task. The agent claims a task, gets the same
  * instructions, input and answer schema the platform's model would get,
  * decides, and submits; the platform checks the answer (every rule answered
  * once, quotes found in the document) and stores it as its own.
@@ -211,7 +212,7 @@ export function handleSetDecider(
 // ── Tasks for the workspace's own agent ────────────────────────────────────
 
 const LIST_TASKS_DESCRIPTION = [
-  "The compliance tasks waiting for the workspace's own agent (decider `external`): `evaluation` (judge a document or a group against rules) or `rules` (derive rules from a framework's extracted requirements). An expired claim reads available again.",
+  "The compliance tasks waiting for the workspace's own agent (decider `external`): `extraction` (read a framework document and list its requirements verbatim), `rules` (derive checkable rules from those requirements), `evaluation` (judge a document or a group against rules) or `discrepancy` (compare a batch of documents). An expired claim reads available again. Work the oldest first: a framework's `rules` task appears only after its `extraction` task is answered.",
   "USE WHEN: working the compliance decisions yourself; claim the oldest with talonic_compliance_claim_task.",
   "NOT FOR: failed checks (talonic_compliance_issues).",
   "",
@@ -235,7 +236,7 @@ export function handleListTasks(
 }
 
 const CLAIM_TASK_DESCRIPTION = [
-  "Claim a compliance task and get its work package: the instructions, the input (the document text(s) and the numbered rules, or the framework's extracted requirements) and the answer's JSON Schema, the same the platform's model would get. The claim lasts 15 minutes unless renewed.",
+  "Claim a compliance task and get its work package: the instructions, the input (a framework's text; its extracted requirements; the document text(s) with the numbered rules; or the documents to compare) and the answer's JSON Schema, the same the platform's model would get. The claim lasts 15 minutes unless renewed.",
   "USE WHEN: about to decide a task from talonic_compliance_list_tasks. Follow `instructions` on `input`, then call talonic_compliance_submit_task with an `answer` matching `output_schema` and the returned execution_epoch.",
   "NOT FOR: listing tasks (talonic_compliance_list_tasks).",
   "",
@@ -262,12 +263,12 @@ export function handleClaimTask(
 }
 
 const SUBMIT_TASK_DESCRIPTION = [
-  "Submit the answer to a claimed compliance task. The platform checks it as strictly as its own model's answer and stores it: an evaluation needs every rule number answered exactly once with a verdict (pass, fail, not_applicable, unclear) and a one-sentence reason, and every quote verbatim from the document (for a group, with its document number); rules need at least one rule with text, obligation and testable.",
+  "Submit the answer to a claimed compliance task. The platform checks it as strictly as its own model's answer and stores it: an evaluation needs every rule number answered exactly once with a verdict (pass, fail, not_applicable, unclear) and a one-sentence reason, and every quote verbatim from the document (for a group, with its document number); a framework reading needs at least one rule whose text is verbatim in the document; rules need at least one rule with text, obligation and testable; a comparison needs a discrepancies array (empty when the documents agree) whose quotes are in the documents they name.",
   "USE WHEN: you decided a task you claimed. A refused answer names every problem; fix them and submit again with the same epoch.",
   "NOT FOR: giving a task back unanswered (talonic_compliance_release_task).",
   "",
-  "ARGS: `task_id`; `execution_epoch` (from the claim); `answer` (an object matching the package's output_schema, e.g. { verdicts: [...] } or { rules: [...] }).",
-  "RETURNS: { task { status: submitted }, result } (the stored evaluation, or the rule count). Submitting the same answer again is harmless.",
+  "ARGS: `task_id`; `execution_epoch` (from the claim); `answer` (an object matching the package's output_schema, e.g. { verdicts: [...] }, { framework_name, rules: [...] }, { rules: [...] } or { discrepancies: [...] }).",
+  "RETURNS: { task { status: submitted }, result } (what was stored). Submitting the same answer again is harmless.",
 ].join("\n")
 
 export const submitTaskInputSchema = {
